@@ -103,6 +103,7 @@ def health() -> dict[str, Any]:
         "warm_granite_on_call_start": settings.warm_granite_on_call_start,
         "speech_model_warmup": manager.speech_warmup_state(),
         "transcribe": settings.transcribe,
+        "force_cpu": settings.force_cpu,
         "segment_seconds": settings.segment_seconds,
         "max_new_tokens": settings.max_new_tokens,
         "reference_max_new_tokens": settings.reference_max_new_tokens,

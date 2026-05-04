@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import subprocess
@@ -32,6 +33,9 @@ TRACK_FILES = {
 }
 LEGACY_TRACK_FILES = {
     "callee": "caller.wav",
+}
+COMPRESSED_TRACK_FILES = {
+    "mixed": "audio.opus",
 }
 TIMING_FIELDS = (
     "mixed_transcribe_seconds",
@@ -206,20 +210,18 @@ def prepare_audio_fixture(source_session: Path, duration_seconds: float, sample_
     peaks: dict[str, float] = {}
 
     for track in TRACKS:
-        source_path = source_session / TRACK_FILES[track]
-        if not source_path.exists() and track in LEGACY_TRACK_FILES:
-            source_path = source_session / LEGACY_TRACK_FILES[track]
+        source = resolve_track_source(source_session, track)
         required = track == "mixed"
-        source_exists = source_path.exists() and source_path.stat().st_size > 44
+        source_exists = source is not None
         if not source_exists and required:
-            raise SystemExit(f"Missing required source audio: {source_path}")
+            raise SystemExit(f"Missing required source audio: {source_session / TRACK_FILES[track]}")
 
-        if source_exists:
-            audio, source_rate = load_wav_mono_float32(source_path)
+        if source is not None:
+            audio, source_rate = load_wav_mono_float32(source["load_path"])
             audio = resample_linear(audio, source_rate, sample_rate)
             audio = fit_duration(audio, target_samples)
             pcm = float_audio_to_pcm16(audio)
-            source_duration = source_path_duration(source_path)
+            source_duration = source_path_duration(source["load_path"])
         else:
             pcm = np.zeros(target_samples, dtype=np.int16)
             source_rate = sample_rate
@@ -228,7 +230,9 @@ def prepare_audio_fixture(source_session: Path, duration_seconds: float, sample_
         tracks[track] = pcm
         peaks[track] = round(float(np.max(np.abs(pcm.astype(np.float32))) / 32768.0), 6) if pcm.size else 0.0
         track_metadata[track] = {
-            "source_path": str(source_path),
+            "source_path": str(source["source_path"]) if source else str(source_session / TRACK_FILES[track]),
+            "load_path": str(source["load_path"]) if source else "",
+            "source_format": source["source_format"] if source else "missing",
             "source_exists": source_exists,
             "source_sample_rate": source_rate,
             "source_duration_seconds": source_duration,
@@ -244,6 +248,66 @@ def prepare_audio_fixture(source_session: Path, duration_seconds: float, sample_
         "peaks": peaks,
         "mic_source_exists": track_metadata["mic"]["source_exists"],
     }
+
+
+def resolve_track_source(source_session: Path, track: str) -> dict[str, Any] | None:
+    source_path = source_session / TRACK_FILES[track]
+    if is_usable_audio_file(source_path):
+        return {"source_path": source_path, "load_path": source_path, "source_format": "wav"}
+
+    legacy_filename = LEGACY_TRACK_FILES.get(track)
+    if legacy_filename:
+        legacy_path = source_session / legacy_filename
+        if is_usable_audio_file(legacy_path):
+            return {"source_path": legacy_path, "load_path": legacy_path, "source_format": "legacy_wav"}
+
+    compressed_filename = COMPRESSED_TRACK_FILES.get(track)
+    if compressed_filename:
+        compressed_path = source_session / compressed_filename
+        if is_usable_audio_file(compressed_path):
+            wav_path = decode_compressed_audio_to_wav(compressed_path)
+            return {"source_path": compressed_path, "load_path": wav_path, "source_format": "opus"}
+
+    return None
+
+
+def is_usable_audio_file(path: Path) -> bool:
+    return path.exists() and path.is_file() and path.stat().st_size > 44
+
+
+def decode_compressed_audio_to_wav(source_path: Path) -> Path:
+    from imageio_ffmpeg import get_ffmpeg_exe
+
+    fixtures_dir = REPO_ROOT / "benchmarks" / "_fixtures"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    fingerprint = hashlib.sha256(str(source_path.resolve()).encode("utf-8")).hexdigest()[:12]
+    source_stat = source_path.stat()
+    wav_path = fixtures_dir / f"{source_path.stem}_{fingerprint}_{int(source_stat.st_mtime)}.wav"
+    if is_usable_audio_file(wav_path) and wav_path.stat().st_mtime >= source_stat.st_mtime:
+        return wav_path
+
+    command = [
+        get_ffmpeg_exe(),
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source_path),
+        "-vn",
+        "-ac",
+        "1",
+        "-c:a",
+        "pcm_s16le",
+        str(wav_path),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        error = (result.stderr or result.stdout or "").strip()
+        raise SystemExit(error or f"ffmpeg exited with status {result.returncode} while decoding {source_path}")
+    if not is_usable_audio_file(wav_path):
+        raise SystemExit(f"ffmpeg did not create a usable WAV fixture: {wav_path}")
+    return wav_path
 
 
 def fit_duration(audio: np.ndarray, target_samples: int) -> np.ndarray:
@@ -444,7 +508,7 @@ def resolve_source_session(source_session: Path | None, health: dict[str, Any], 
         session_dir = transcript_path.parent
         if "_tmp" in session_dir.parts:
             continue
-        if not (session_dir / "audio.wav").exists():
+        if not (session_dir / "audio.wav").exists() and not (session_dir / "audio.opus").exists():
             continue
         payload = read_json_path(transcript_path)
         if payload.get("status") != "transcribed":

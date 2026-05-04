@@ -23,6 +23,7 @@ CONFIG_OPTIONS: tuple[tuple[str, str, str], ...] = (
     ("GV_KEEP_WAV_FILES", "Keep large WAV files in transcript folders", "0"),
     ("GV_INCREMENTAL_REFERENCE_TRANSCRIPTION", "Use 3-track incremental speaker references", "1"),
     ("GV_WARM_GRANITE_ON_CALL_START", "Warm Granite when a call starts", "1"),
+    ("GV_FORCE_CPU", "Force CPU mode (disable GPU acceleration)", "0"),
     ("GV_HF_LOCAL_FILES_ONLY", "Strict offline mode after models are cached", "0"),
     ("GV_KEEP_TITLE_MODEL", "Keep title model warm", "1"),
 )
@@ -35,6 +36,7 @@ CONFIG_DEFAULTS: dict[str, str] = {
     "GV_KEEP_WAV_FILES": "0",
     "GV_INCREMENTAL_REFERENCE_TRANSCRIPTION": "1",
     "GV_WARM_GRANITE_ON_CALL_START": "1",
+    "GV_FORCE_CPU": "0",
     "GV_HF_LOCAL_FILES_ONLY": "0",
     "GV_KEEP_TITLE_MODEL": "1",
 }

@@ -74,6 +74,7 @@ Important defaults:
 - Reference decode cap: `GV_REFERENCE_MAX_NEW_TOKENS=128`
 - Strict offline mode after caching: `GV_HF_LOCAL_FILES_ONLY=1`
 - Keep large WAV files in final transcript folders: `GV_KEEP_WAV_FILES=0`
+- GPU acceleration enabled unless CPU mode is forced: `GV_FORCE_CPU=0`
 
 Disable 3-track incremental reference transcription on weaker GPUs:
 
@@ -132,6 +133,17 @@ Benchmark a simulated 15-minute call:
   --realtime-upload `
   --progress-every 100
 ```
+
+Compare warm GPU vs CPU pipeline performance:
+
+```powershell
+.\scripts\benchmark-cpu-gpu.ps1 `
+  -SourceSession "C:\Users\Pew Pew Control\Documents\Google Voice Transcripts\YYYY-MM-DD\SESSION_FOLDER" `
+  -DurationSeconds 900
+```
+
+The comparison uses a short warmup replay by default, then two measured realtime
+runs for each mode.
 
 ## Build Release Assets
 

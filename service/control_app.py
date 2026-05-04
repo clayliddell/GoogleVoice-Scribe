@@ -30,8 +30,8 @@ class ControlApp:
     def __init__(self) -> None:
         self.root = Tk()
         self.root.title(APP_NAME)
-        self.root.geometry("560x420")
-        self.root.minsize(520, 390)
+        self.root.geometry("560x450")
+        self.root.minsize(520, 420)
         self.events: queue.Queue[tuple[str, str]] = queue.Queue()
         self.install_dir = default_install_dir()
         self.config_vars: dict[str, BooleanVar] = {}
