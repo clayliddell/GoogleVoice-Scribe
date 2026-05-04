@@ -1,14 +1,16 @@
-# GoogleVoice Scribe v0.1.0
+# GoogleVoice Scribe v0.2.0
 
-Initial public release.
+Installer and packaging update.
 
 ## Assets
 
-- `GoogleVoiceScribeServer-v0.1.0-win-x64.zip` - Windows server launcher and service package.
-- `GoogleVoiceScribeExtension-v0.1.0.zip` - Chromium MV3 extension package for sideloading.
+- `GoogleVoiceScribeSetup-v0.2.0-win-x64.exe` - per-user Windows installer for the local server and control app.
+- `GoogleVoiceScribeExtension-v0.2.0.crx` - packaged Chromium MV3 extension.
 
 ## Notes
 
+- Adds a launchable control app with Start Server, Stop Server, and core config checkboxes.
+- The installer updates an existing per-user install when run with the same or a newer version.
+- Completed transcript folders now keep compressed `audio.opus` by default and remove large WAV files unless `GV_KEEP_WAV_FILES=1`.
 - Model weights are not bundled. The server downloads and caches model files locally on first use.
-- The server package creates/uses a local `.venv` beside the launcher and installs CUDA Python dependencies there.
 - Review local call-recording consent requirements before use.

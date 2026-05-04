@@ -12,13 +12,14 @@ weights are not stored in this repository or bundled in releases.
 
 GitHub releases contain two assets:
 
-- `GoogleVoiceScribeServer-v0.1.0-win-x64.zip` - Windows launcher executable plus server source package.
-- `GoogleVoiceScribeExtension-v0.1.0.zip` - Chromium MV3 extension for sideloading.
+- `GoogleVoiceScribeSetup-v0.2.0-win-x64.exe` - per-user Windows installer for the local server and control app.
+- `GoogleVoiceScribeExtension-v0.2.0.crx` - packaged Chromium MV3 extension.
 
-The server ZIP is intentionally thin. On first run, `GoogleVoiceScribeServer.exe`
-creates a local `.venv`, installs the Python/CUDA runtime dependencies, then
-starts the local API. Granite Speech and Gemma GGUF model files are downloaded
-into the user's Hugging Face cache on demand.
+The installer is intentionally thin. It installs the app under
+`%LOCALAPPDATA%\GoogleVoiceScribe`, creates a local `.venv`, installs the
+Python/CUDA runtime dependencies, creates Start Menu/Desktop shortcuts, and
+launches the control app. Granite Speech and Gemma GGUF model files are
+downloaded into the user's Hugging Face cache on demand.
 
 ## Requirements
 
@@ -30,13 +31,14 @@ into the user's Hugging Face cache on demand.
 
 ## Install From A GitHub Release
 
-1. Download and extract `GoogleVoiceScribeServer-v0.1.0-win-x64.zip`.
-2. Run `GoogleVoiceScribeServer.exe`.
-3. Wait for the first-run dependency installation to complete.
+1. Download and run `GoogleVoiceScribeSetup-v0.2.0-win-x64.exe`.
+2. Wait for the installer to finish dependency setup and launch the control app.
+3. Click "Start Server" in the control app.
 4. Confirm the local service is healthy at `http://127.0.0.1:8765/health`.
-5. Download and extract `GoogleVoiceScribeExtension-v0.1.0.zip`.
-6. Open `chrome://extensions`, enable Developer mode, choose "Load unpacked",
-   and select the extracted extension folder.
+5. Download `GoogleVoiceScribeExtension-v0.2.0.crx`.
+6. Open `chrome://extensions`, enable Developer mode, and drag the `.crx` file
+   onto the extensions page. If your browser blocks local CRX sideloading, load
+   `extension/` as an unpacked extension from a source checkout instead.
 7. Open `https://voice.google.com/`, click the extension icon to arm recording,
    then start an outgoing call.
 
@@ -57,8 +59,9 @@ Load `extension/` as an unpacked Chromium extension during development.
 
 ## Configuration
 
-Configuration is via environment variables. Copy `.env.example` for the complete
-set of supported options.
+Configuration is stored in `%APPDATA%\GoogleVoiceScribe\config.env` and can be
+edited from the control app. Environment variables with the same names override
+the config file. Copy `.env.example` for the complete set of supported options.
 
 Important defaults:
 
@@ -70,6 +73,7 @@ Important defaults:
 - Incremental `you`/`caller` reference transcription: `GV_INCREMENTAL_REFERENCE_TRANSCRIPTION=1`
 - Reference decode cap: `GV_REFERENCE_MAX_NEW_TOKENS=128`
 - Strict offline mode after caching: `GV_HF_LOCAL_FILES_ONLY=1`
+- Keep large WAV files in final transcript folders: `GV_KEEP_WAV_FILES=0`
 
 Disable 3-track incremental reference transcription on weaker GPUs:
 
@@ -85,10 +89,7 @@ Completed calls are moved from `_tmp` into a date folder:
 ```text
 YYYY-MM-DD/
   YYYYMMDDTHHMMSS-0700_subject/
-    audio.wav
     audio.opus
-    you.wav
-    caller.wav
     transcript.json
     session.json
     conversation.txt
@@ -101,8 +102,10 @@ YYYY-MM-DD/
 [Callee]: ...
 ```
 
-`audio.opus` is a compressed playback copy of the mixed recording. The WAV files
-are retained for debugging and reprocessing.
+`audio.opus` is a compressed playback copy of the mixed recording. By default,
+large WAV files are used as temporary processing files and removed before the
+completed transcript folder is finalized. Set `GV_KEEP_WAV_FILES=1` to retain
+`audio.wav`, `you.wav`, and `caller.wav` for debugging or reprocessing.
 
 ## Maintenance Commands
 
@@ -133,13 +136,14 @@ Benchmark a simulated 15-minute call:
 ## Build Release Assets
 
 ```powershell
-.\scripts\build-server-exe.ps1
 .\scripts\build-extension.ps1
+.\scripts\build-installer.ps1
 ```
 
-The generated ZIP files are written to `dist/`.
+The generated `.crx` and installer `.exe` are written to `dist/`. The CRX key is
+stored locally under `build\secrets` and is ignored by Git.
 
-To create the GitHub repository and publish `v0.1.0`:
+To create or update the GitHub release for `v0.2.0`:
 
 ```powershell
 .\scripts\release.ps1

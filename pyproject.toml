@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "googlevoice-scribe"
-version = "0.1.0"
+version = "0.2.0"
 description = "Chromium extension and local server for recording and transcribing Google Voice calls."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

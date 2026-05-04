@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .config import Settings
-from .sessions import SessionManager
+from .sessions import SessionManager, exposed_wav_path
 from .version import APP_NAME, __version__
 
 
@@ -69,6 +69,8 @@ class AbortSessionRequest(BaseModel):
 def health() -> dict[str, Any]:
     return {
         "ok": True,
+        "version": __version__,
+        "config_file_path": str(settings.config_file_path),
         "recordings_dir": str(settings.recordings_dir),
         "model_name": settings.model_name,
         "title_backend": settings.title_backend,
@@ -83,6 +85,7 @@ def health() -> dict[str, Any]:
         "hf_local_first": settings.hf_local_first,
         "hf_local_files_only": settings.hf_local_files_only,
         "compress_audio": settings.compress_audio,
+        "keep_wav_files": settings.keep_wav_files,
         "compressed_audio_format": settings.compressed_audio_format,
         "opus_bitrate": settings.opus_bitrate,
         "speaker_reference_mode": settings.speaker_reference_mode,
@@ -103,7 +106,6 @@ def health() -> dict[str, Any]:
         "segment_seconds": settings.segment_seconds,
         "max_new_tokens": settings.max_new_tokens,
         "reference_max_new_tokens": settings.reference_max_new_tokens,
-        "version": __version__,
     }
 
 
@@ -178,11 +180,11 @@ def finish_session(
         "status": record.status,
         "transcript_status": transcript_status,
         "duration_seconds": record.duration_seconds,
-        "audio_path": str(record.wav_path),
+        "audio_path": exposed_wav_path(record, record.wav_path),
         "compressed_audio_path": str(record.compressed_audio_path),
         "compressed_audio_error": record.compressed_audio_error,
-        "you_audio_path": str(record.mic_wav_path),
-        "caller_audio_path": str(record.caller_wav_path),
+        "you_audio_path": exposed_wav_path(record, record.mic_wav_path),
+        "caller_audio_path": exposed_wav_path(record, record.caller_wav_path),
         "transcript_path": str(record.transcript_path),
         "conversation_path": str(record.conversation_path),
         "session_dir": str(record.session_dir),

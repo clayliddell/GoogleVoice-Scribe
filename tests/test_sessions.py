@@ -6,6 +6,8 @@ from app.sessions import (
     MAX_FOLDER_NAME_LENGTH,
     SessionRecord,
     append_incremental_reference_text,
+    apply_wav_retention,
+    exposed_wav_path,
     unique_final_path,
 )
 
@@ -27,6 +29,34 @@ def test_append_incremental_reference_text_trims_repeated_prefix(tmp_path):
     append_incremental_reference_text(record, "caller", "thanks for calling how can I help")
 
     assert record.incremental_reference_text["caller"] == "hello there thanks for calling how can I help"
+
+
+def test_apply_wav_retention_removes_track_wavs_when_disabled(tmp_path):
+    record = minimal_record(tmp_path)
+    for wav_path in (record.wav_path, record.mic_wav_path, record.caller_wav_path):
+        wav_path.write_bytes(b"RIFFfake")
+
+    apply_wav_retention(record, keep_wav_files=False)
+
+    assert record.wav_files_retained is False
+    assert not record.wav_path.exists()
+    assert not record.mic_wav_path.exists()
+    assert not record.caller_wav_path.exists()
+    assert exposed_wav_path(record, record.wav_path) is None
+
+
+def test_apply_wav_retention_keeps_track_wavs_when_enabled(tmp_path):
+    record = minimal_record(tmp_path)
+    for wav_path in (record.wav_path, record.mic_wav_path, record.caller_wav_path):
+        wav_path.write_bytes(b"RIFFfake")
+
+    apply_wav_retention(record, keep_wav_files=True)
+
+    assert record.wav_files_retained is True
+    assert record.wav_path.exists()
+    assert record.mic_wav_path.exists()
+    assert record.caller_wav_path.exists()
+    assert exposed_wav_path(record, record.wav_path) == str(record.wav_path)
 
 
 def minimal_record(tmp_path: Path) -> SessionRecord:

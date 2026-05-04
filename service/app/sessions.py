@@ -79,6 +79,7 @@ class SessionRecord:
     track_durations_seconds: dict[str, float] = field(default_factory=dict)
     track_upload_errors: dict[str, list[str]] = field(default_factory=dict)
     compressed_audio_error: str | None = None
+    wav_files_retained: bool = True
     ended_at: str | None = None
     duration_seconds: float | None = None
     status: str = "recording"
@@ -179,6 +180,7 @@ class SessionManager:
             track_expected_sequence={track: 0 for track in TRACKS},
             track_sequence_gaps={track: [] for track in TRACKS},
             track_upload_errors={track: [] for track in TRACKS},
+            wav_files_retained=self.settings.keep_wav_files,
             incremental_reference_text={"mic": "", "caller": ""},
             incremental_reference_transcribe_seconds={"mic": 0.0, "caller": 0.0},
             incremental_reference_audio_seconds={"mic": 0.0, "caller": 0.0},
@@ -287,6 +289,7 @@ class SessionManager:
         if not self.settings.transcribe:
             record.callee = "Callee"
             record.subject = "not transcribed"
+            apply_wav_retention(record, keep_wav_files=self.settings.keep_wav_files)
             self._finalize_session_dir(record)
 
         self._write_metadata(record)
@@ -380,6 +383,7 @@ class SessionManager:
             timings["transcription_total_seconds"] = elapsed_seconds(total_started)
             record.speaker_map = speaker_map
             record.status = "transcribed"
+            apply_wav_retention(record, keep_wav_files=self.settings.keep_wav_files)
             self._finalize_session_dir(record)
             write_text(record.conversation_path, conversation_text)
             resolved_segments = resolve_segment_speakers(result.segments, record.speaker_map)
@@ -413,6 +417,7 @@ class SessionManager:
             record.callee = "Callee"
             record.subject = "transcription failed"
             timings["transcription_total_seconds"] = elapsed_seconds(total_started)
+            apply_wav_retention(record, keep_wav_files=self.settings.keep_wav_files)
             self._finalize_session_dir(record)
             self._write_metadata(record)
             write_json(
@@ -440,11 +445,11 @@ class SessionManager:
     def as_response(self, record: SessionRecord) -> dict[str, Any]:
         payload = record_to_json(record)
         payload["session_dir"] = str(record.session_dir)
-        payload["audio_path"] = str(record.wav_path)
+        payload["audio_path"] = exposed_wav_path(record, record.wav_path)
         payload["compressed_audio_path"] = str(record.compressed_audio_path)
         payload["compressed_audio_error"] = record.compressed_audio_error
-        payload["you_audio_path"] = str(record.mic_wav_path)
-        payload["caller_audio_path"] = str(record.caller_wav_path)
+        payload["you_audio_path"] = exposed_wav_path(record, record.mic_wav_path)
+        payload["caller_audio_path"] = exposed_wav_path(record, record.caller_wav_path)
         payload["transcript_path"] = str(record.transcript_path)
         payload["conversation_path"] = str(record.conversation_path)
         payload["speech_model_warmup"] = {
@@ -891,11 +896,11 @@ class SessionManager:
             "started_at": record.started_at,
             "ended_at": record.ended_at,
             "duration_seconds": record.duration_seconds,
-            "audio_path": str(record.wav_path),
+            "audio_path": exposed_wav_path(record, record.wav_path),
             "compressed_audio_path": str(record.compressed_audio_path),
             "compressed_audio_error": record.compressed_audio_error,
-            "you_audio_path": str(record.mic_wav_path),
-            "caller_audio_path": str(record.caller_wav_path),
+            "you_audio_path": exposed_wav_path(record, record.mic_wav_path),
+            "caller_audio_path": exposed_wav_path(record, record.caller_wav_path),
             "transcript_path": str(record.transcript_path),
             "conversation_path": str(record.conversation_path),
             "session_dir": str(record.session_dir),
@@ -965,6 +970,12 @@ class SessionManager:
                 "track_upload_errors": record.track_upload_errors,
                 "compressed_audio_enabled": self.settings.compress_audio,
                 "compressed_audio_format": self.settings.compressed_audio_format,
+                "wav_files_retained": record.wav_files_retained,
+                "wav_files_available": {
+                    "mixed": record.wav_path.exists(),
+                    "mic": record.mic_wav_path.exists(),
+                    "caller": record.caller_wav_path.exists(),
+                },
             },
         }
 
@@ -1458,6 +1469,24 @@ def compress_recording_audio(
         except Exception:
             pass
         return str(error)
+
+
+def apply_wav_retention(record: SessionRecord, *, keep_wav_files: bool) -> None:
+    record.wav_files_retained = keep_wav_files
+    if keep_wav_files:
+        return
+
+    for track in TRACKS:
+        try:
+            track_wav_path(record, track).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def exposed_wav_path(record: SessionRecord, wav_path: Path) -> str | None:
+    if record.wav_files_retained or wav_path.exists():
+        return str(wav_path)
+    return None
 
 
 def resolve_segment_speakers(segments: list[dict[str, Any]], speaker_map: dict[str, str]) -> list[dict[str, Any]]:

@@ -19,3 +19,5 @@ benchmarks/
 *.m4a
 *.flac
 *.webm
+*.crx
+*.pem

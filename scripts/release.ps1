@@ -1,6 +1,6 @@
 param(
     [string]$RepoName = "GoogleVoice-Scribe",
-    [string]$Tag = "v0.1.0",
+    [string]$Tag = "v0.2.0",
     [switch]$SkipBuild,
     [switch]$AllowDirty
 )
@@ -18,8 +18,8 @@ if (-not $AllowDirty) {
 }
 
 if (-not $SkipBuild) {
-    & (Join-Path $repoRoot "scripts\build-server-exe.ps1")
     & (Join-Path $repoRoot "scripts\build-extension.ps1")
+    & (Join-Path $repoRoot "scripts\build-installer.ps1")
 }
 
 $ghCommand = Get-Command gh -ErrorAction SilentlyContinue
@@ -60,9 +60,9 @@ if (-not $tagExists) {
 }
 git push origin $Tag
 
-$serverZip = Get-ChildItem -Path (Join-Path $repoRoot "dist") -Filter "GoogleVoiceScribeServer-*-win-x64.zip" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-$extensionZip = Get-ChildItem -Path (Join-Path $repoRoot "dist") -Filter "GoogleVoiceScribeExtension-*.zip" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if (-not $serverZip -or -not $extensionZip) {
+$installerExe = Get-ChildItem -Path (Join-Path $repoRoot "dist") -Filter "GoogleVoiceScribeSetup-*-win-x64.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$extensionCrx = Get-ChildItem -Path (Join-Path $repoRoot "dist") -Filter "GoogleVoiceScribeExtension-*.crx" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $installerExe -or -not $extensionCrx) {
     throw "Missing release assets under dist/."
 }
 
@@ -73,9 +73,9 @@ try {
     $releaseViewExit = 1
 }
 if ($releaseViewExit -ne 0) {
-    & $gh release create $Tag $serverZip.FullName $extensionZip.FullName --repo $repo --title "GoogleVoice Scribe $Tag" --notes-file (Join-Path $repoRoot "RELEASE_NOTES.md")
+    & $gh release create $Tag $installerExe.FullName $extensionCrx.FullName --repo $repo --title "GoogleVoice Scribe $Tag" --notes-file (Join-Path $repoRoot "RELEASE_NOTES.md")
 } else {
-    & $gh release upload $Tag $serverZip.FullName $extensionZip.FullName --repo $repo --clobber
+    & $gh release upload $Tag $installerExe.FullName $extensionCrx.FullName --repo $repo --clobber
 }
 
 Write-Output "Released https://github.com/$repo/releases/tag/$Tag"

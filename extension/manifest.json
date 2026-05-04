@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GoogleVoice Scribe",
   "description": "Records outgoing Google Voice calls and sends local audio to the GoogleVoice Scribe server.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Arm Google Voice recorder"

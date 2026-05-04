@@ -20,10 +20,9 @@ jobs:
       - name: Compile Python sources
         shell: pwsh
         run: |
-          Get-ChildItem service/app -Filter *.py -Recurse | ForEach-Object {
+          Get-ChildItem service -Filter *.py -Recurse | ForEach-Object {
             python -m py_compile $_.FullName
           }
-          python -m py_compile service/launcher.py
           python -m py_compile scripts/benchmark-pipeline.py
           python -m py_compile scripts/test-title-generation.py
 
