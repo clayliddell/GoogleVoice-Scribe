@@ -8,6 +8,7 @@ from app.sessions import (
     append_incremental_reference_text,
     apply_wav_retention,
     exposed_wav_path,
+    normalize_track,
     unique_final_path,
 )
 
@@ -25,15 +26,15 @@ def test_unique_final_path_keeps_windows_component_under_limit(tmp_path):
 
 def test_append_incremental_reference_text_trims_repeated_prefix(tmp_path):
     record = minimal_record(tmp_path)
-    append_incremental_reference_text(record, "caller", "hello there thanks for calling")
-    append_incremental_reference_text(record, "caller", "thanks for calling how can I help")
+    append_incremental_reference_text(record, "callee", "hello there thanks for calling")
+    append_incremental_reference_text(record, "callee", "thanks for calling how can I help")
 
-    assert record.incremental_reference_text["caller"] == "hello there thanks for calling how can I help"
+    assert record.incremental_reference_text["callee"] == "hello there thanks for calling how can I help"
 
 
 def test_apply_wav_retention_removes_track_wavs_when_disabled(tmp_path):
     record = minimal_record(tmp_path)
-    for wav_path in (record.wav_path, record.mic_wav_path, record.caller_wav_path):
+    for wav_path in (record.wav_path, record.mic_wav_path, record.callee_wav_path):
         wav_path.write_bytes(b"RIFFfake")
 
     apply_wav_retention(record, keep_wav_files=False)
@@ -41,13 +42,13 @@ def test_apply_wav_retention_removes_track_wavs_when_disabled(tmp_path):
     assert record.wav_files_retained is False
     assert not record.wav_path.exists()
     assert not record.mic_wav_path.exists()
-    assert not record.caller_wav_path.exists()
+    assert not record.callee_wav_path.exists()
     assert exposed_wav_path(record, record.wav_path) is None
 
 
 def test_apply_wav_retention_keeps_track_wavs_when_enabled(tmp_path):
     record = minimal_record(tmp_path)
-    for wav_path in (record.wav_path, record.mic_wav_path, record.caller_wav_path):
+    for wav_path in (record.wav_path, record.mic_wav_path, record.callee_wav_path):
         wav_path.write_bytes(b"RIFFfake")
 
     apply_wav_retention(record, keep_wav_files=True)
@@ -55,8 +56,14 @@ def test_apply_wav_retention_keeps_track_wavs_when_enabled(tmp_path):
     assert record.wav_files_retained is True
     assert record.wav_path.exists()
     assert record.mic_wav_path.exists()
-    assert record.caller_wav_path.exists()
+    assert record.callee_wav_path.exists()
     assert exposed_wav_path(record, record.wav_path) == str(record.wav_path)
+
+
+def test_normalize_track_accepts_legacy_caller_alias():
+    assert normalize_track("callee") == "callee"
+    assert normalize_track("caller") == "callee"
+    assert normalize_track("tab") == "callee"
 
 
 def minimal_record(tmp_path: Path) -> SessionRecord:
@@ -67,8 +74,8 @@ def minimal_record(tmp_path: Path) -> SessionRecord:
         wav_path=tmp_path / "audio.wav",
         mic_pcm_path=tmp_path / "you.pcm",
         mic_wav_path=tmp_path / "you.wav",
-        caller_pcm_path=tmp_path / "caller.pcm",
-        caller_wav_path=tmp_path / "caller.wav",
+        callee_pcm_path=tmp_path / "callee.pcm",
+        callee_wav_path=tmp_path / "callee.wav",
         compressed_audio_path=tmp_path / "audio.opus",
         transcript_path=tmp_path / "transcript.json",
         conversation_path=tmp_path / "conversation.txt",
@@ -82,8 +89,8 @@ def minimal_record(tmp_path: Path) -> SessionRecord:
         callee_label="",
         transcript_mode="speaker_attributed_asr",
         audio_mode="test",
-        incremental_reference_text={"mic": "", "caller": ""},
-        incremental_reference_transcribe_seconds={"mic": 0.0, "caller": 0.0},
-        incremental_reference_audio_seconds={"mic": 0.0, "caller": 0.0},
-        incremental_reference_tasks_completed={"mic": 0, "caller": 0},
+        incremental_reference_text={"mic": "", "callee": ""},
+        incremental_reference_transcribe_seconds={"mic": 0.0, "callee": 0.0},
+        incremental_reference_audio_seconds={"mic": 0.0, "callee": 0.0},
+        incremental_reference_tasks_completed={"mic": 0, "callee": 0},
     )

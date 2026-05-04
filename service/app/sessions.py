@@ -45,8 +45,8 @@ class SessionRecord:
     wav_path: Path
     mic_pcm_path: Path
     mic_wav_path: Path
-    caller_pcm_path: Path
-    caller_wav_path: Path
+    callee_pcm_path: Path
+    callee_wav_path: Path
     compressed_audio_path: Path
     transcript_path: Path
     conversation_path: Path
@@ -159,8 +159,8 @@ class SessionManager:
             wav_path=session_dir / "audio.wav",
             mic_pcm_path=session_dir / "you.pcm",
             mic_wav_path=session_dir / "you.wav",
-            caller_pcm_path=session_dir / "caller.pcm",
-            caller_wav_path=session_dir / "caller.wav",
+            callee_pcm_path=session_dir / TRACK_FILENAMES["callee"][0],
+            callee_wav_path=session_dir / TRACK_FILENAMES["callee"][1],
             compressed_audio_path=session_dir / "audio.opus",
             transcript_path=session_dir / "transcript.json",
             conversation_path=session_dir / "conversation.txt",
@@ -181,10 +181,10 @@ class SessionManager:
             track_sequence_gaps={track: [] for track in TRACKS},
             track_upload_errors={track: [] for track in TRACKS},
             wav_files_retained=self.settings.keep_wav_files,
-            incremental_reference_text={"mic": "", "caller": ""},
-            incremental_reference_transcribe_seconds={"mic": 0.0, "caller": 0.0},
-            incremental_reference_audio_seconds={"mic": 0.0, "caller": 0.0},
-            incremental_reference_tasks_completed={"mic": 0, "caller": 0},
+            incremental_reference_text={"mic": "", "callee": ""},
+            incremental_reference_transcribe_seconds={"mic": 0.0, "callee": 0.0},
+            incremental_reference_audio_seconds={"mic": 0.0, "callee": 0.0},
+            incremental_reference_tasks_completed={"mic": 0, "callee": 0},
             incremental_reference_errors={},
         )
 
@@ -355,14 +355,14 @@ class SessionManager:
             timings["you_reference_audio_seconds"] = round(you_reference_audio_seconds, 3)
             timings["you_reference_source"] = you_reference_source
             started = time.perf_counter()
-            caller_reference, caller_reference_audio_seconds, caller_reference_source = self._speaker_reference_text(
+            callee_reference, callee_reference_audio_seconds, callee_reference_source = self._speaker_reference_text(
                 record,
-                track="caller",
-                wav_path=record.caller_wav_path,
+                track="callee",
+                wav_path=record.callee_wav_path,
             )
-            timings["caller_reference_transcribe_seconds"] = elapsed_seconds(started)
-            timings["caller_reference_audio_seconds"] = round(caller_reference_audio_seconds, 3)
-            timings["caller_reference_source"] = caller_reference_source
+            timings["callee_reference_transcribe_seconds"] = elapsed_seconds(started)
+            timings["callee_reference_audio_seconds"] = round(callee_reference_audio_seconds, 3)
+            timings["callee_reference_source"] = callee_reference_source
             timings["speaker_reference_mode"] = self.settings.speaker_reference_mode
             record.callee = "Callee"
             started = time.perf_counter()
@@ -377,7 +377,7 @@ class SessionManager:
                 result.segments,
                 callee_name=record.callee,
                 you_reference_text=you_reference,
-                caller_reference_text=caller_reference,
+                callee_reference_text=callee_reference,
             )
             timings["conversation_build_seconds"] = elapsed_seconds(started)
             timings["transcription_total_seconds"] = elapsed_seconds(total_started)
@@ -399,12 +399,12 @@ class SessionManager:
                     "segments": resolved_segments,
                     "speaker_reference_text": {
                         "you": you_reference,
-                        "callee": caller_reference,
+                        "callee": callee_reference,
                     },
                     "timings": timings,
                     **timings,
                     "warnings": {
-                        "speaker_identity": "You/callee labels are resolved from separate microphone and caller tracks when available.",
+                        "speaker_identity": "You/callee labels are resolved from separate microphone and callee tracks when available.",
                         "subject_backend": self.settings.title_backend,
                         "subject_model": self.settings.title_model_name,
                         "subject_model_file": self.settings.title_gguf_filename if self.settings.title_backend == "llama_cpp" else None,
@@ -449,7 +449,7 @@ class SessionManager:
         payload["compressed_audio_path"] = str(record.compressed_audio_path)
         payload["compressed_audio_error"] = record.compressed_audio_error
         payload["you_audio_path"] = exposed_wav_path(record, record.mic_wav_path)
-        payload["caller_audio_path"] = exposed_wav_path(record, record.caller_wav_path)
+        payload["callee_audio_path"] = exposed_wav_path(record, record.callee_wav_path)
         payload["transcript_path"] = str(record.transcript_path)
         payload["conversation_path"] = str(record.conversation_path)
         payload["speech_model_warmup"] = {
@@ -693,7 +693,7 @@ class SessionManager:
                 )
                 mixed_elapsed = elapsed_seconds(mixed_started)
 
-                for reference_track in ("mic", "caller"):
+                for reference_track in ("mic", "callee"):
                     if not self.settings.incremental_reference_transcription:
                         break
                     reference_audio = task.track_audio.get(reference_track)
@@ -900,7 +900,7 @@ class SessionManager:
             "compressed_audio_path": str(record.compressed_audio_path),
             "compressed_audio_error": record.compressed_audio_error,
             "you_audio_path": exposed_wav_path(record, record.mic_wav_path),
-            "caller_audio_path": exposed_wav_path(record, record.caller_wav_path),
+            "callee_audio_path": exposed_wav_path(record, record.callee_wav_path),
             "transcript_path": str(record.transcript_path),
             "conversation_path": str(record.conversation_path),
             "session_dir": str(record.session_dir),
@@ -974,7 +974,7 @@ class SessionManager:
                 "wav_files_available": {
                     "mixed": record.wav_path.exists(),
                     "mic": record.mic_wav_path.exists(),
-                    "caller": record.caller_wav_path.exists(),
+                    "callee": record.callee_wav_path.exists(),
                 },
             },
         }
@@ -1282,7 +1282,7 @@ def apply_incremental_reference_results(
     reference_audio_seconds: dict[str, float],
     reference_errors: dict[str, str],
 ) -> None:
-    for reference_track in ("mic", "caller"):
+    for reference_track in ("mic", "callee"):
         if reference_track in reference_texts:
             append_incremental_reference_text(record, reference_track, reference_texts[reference_track])
             record.incremental_reference_errors.pop(reference_track, None)
@@ -1374,7 +1374,7 @@ def load_reference_tail_audio(
     source_rate: int,
 ) -> dict[str, tuple[np.ndarray, int]]:
     items: dict[str, tuple[np.ndarray, int]] = {}
-    for track in ("mic", "caller"):
+    for track in ("mic", "callee"):
         wav_path = track_wav_path(record, track)
         if not wav_path.exists() or wav_path.stat().st_size <= 44:
             continue
@@ -1512,8 +1512,8 @@ def resolve_segment_speakers(segments: list[dict[str, Any]], speaker_map: dict[s
 
 def normalize_track(track: str) -> str:
     track = (track or "mixed").strip().lower()
-    if track == "tab":
-        track = "caller"
+    if track in {"tab", "caller"}:
+        track = "callee"
     if track not in TRACKS:
         raise ValueError(f"Unknown audio track: {track}")
     return track
@@ -1521,23 +1521,23 @@ def normalize_track(track: str) -> str:
 
 def normalize_track_errors(value: Any, fallback: list[str]) -> dict[str, list[str]]:
     if isinstance(value, dict):
-        return {track: list(value.get(track) or []) for track in TRACKS}
-    return {"mixed": fallback, "mic": [], "caller": []}
+        return {track: list(value.get(track) or value.get("caller" if track == "callee" else track) or []) for track in TRACKS}
+    return {"mixed": fallback, "mic": [], "callee": []}
 
 
 def track_pcm_path(record: SessionRecord, track: str) -> Path:
     if track == "mic":
         return record.mic_pcm_path
-    if track == "caller":
-        return record.caller_pcm_path
+    if track == "callee":
+        return record.callee_pcm_path
     return record.pcm_path
 
 
 def track_wav_path(record: SessionRecord, track: str) -> Path:
     if track == "mic":
         return record.mic_wav_path
-    if track == "caller":
-        return record.caller_wav_path
+    if track == "callee":
+        return record.callee_wav_path
     return record.wav_path
 
 
@@ -1547,8 +1547,8 @@ def rebind_paths(record: SessionRecord, session_dir: Path) -> None:
     record.wav_path = session_dir / TRACK_FILENAMES["mixed"][1]
     record.mic_pcm_path = session_dir / TRACK_FILENAMES["mic"][0]
     record.mic_wav_path = session_dir / TRACK_FILENAMES["mic"][1]
-    record.caller_pcm_path = session_dir / TRACK_FILENAMES["caller"][0]
-    record.caller_wav_path = session_dir / TRACK_FILENAMES["caller"][1]
+    record.callee_pcm_path = session_dir / TRACK_FILENAMES["callee"][0]
+    record.callee_wav_path = session_dir / TRACK_FILENAMES["callee"][1]
     record.compressed_audio_path = compressed_audio_path(record.wav_path)
     record.transcript_path = session_dir / "transcript.json"
     record.conversation_path = session_dir / "conversation.txt"

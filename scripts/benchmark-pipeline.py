@@ -24,11 +24,14 @@ from app.audio import load_wav_mono_float32, resample_linear  # noqa: E402
 
 
 TERMINAL_STATUSES = {"transcribed", "transcription_failed", "aborted"}
-TRACKS = ("mixed", "caller", "mic")
+TRACKS = ("mixed", "callee", "mic")
 TRACK_FILES = {
     "mixed": "audio.wav",
-    "caller": "caller.wav",
+    "callee": "callee.wav",
     "mic": "you.wav",
+}
+LEGACY_TRACK_FILES = {
+    "callee": "caller.wav",
 }
 TIMING_FIELDS = (
     "mixed_transcribe_seconds",
@@ -45,9 +48,9 @@ TIMING_FIELDS = (
     "you_reference_transcribe_seconds",
     "you_reference_audio_seconds",
     "you_reference_source",
-    "caller_reference_transcribe_seconds",
-    "caller_reference_audio_seconds",
-    "caller_reference_source",
+    "callee_reference_transcribe_seconds",
+    "callee_reference_audio_seconds",
+    "callee_reference_source",
     "speaker_reference_mode",
     "title_generation_seconds",
     "conversation_build_seconds",
@@ -204,6 +207,8 @@ def prepare_audio_fixture(source_session: Path, duration_seconds: float, sample_
 
     for track in TRACKS:
         source_path = source_session / TRACK_FILES[track]
+        if not source_path.exists() and track in LEGACY_TRACK_FILES:
+            source_path = source_session / LEGACY_TRACK_FILES[track]
         required = track == "mixed"
         source_exists = source_path.exists() and source_path.stat().st_size > 44
         if not source_exists and required:
@@ -394,7 +399,7 @@ def finish_session(
             "mic_error": None if mic_captured else "No source you.wav; benchmark used silence.",
             "mic_track_label": "benchmark source you.wav" if mic_captured else "",
             "mic_peak": peaks["mic"],
-            "tab_peak": peaks["caller"],
+            "tab_peak": peaks["callee"],
             "mixed_peak": peaks["mixed"],
             "ended_at": datetime.now(timezone.utc).isoformat(),
         },

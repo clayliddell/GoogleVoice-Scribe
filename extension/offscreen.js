@@ -131,13 +131,13 @@ async function startRecording(options) {
   }
 
   const mixedProcessor = createTrackProcessor(audioContext);
-  const callerProcessor = createTrackProcessor(audioContext);
+  const calleeProcessor = createTrackProcessor(audioContext);
   const micProcessor = micStream ? createTrackProcessor(audioContext) : null;
 
   mixGain.connect(mixedProcessor);
   mixedProcessor.connect(silentOutput);
-  tabGain.connect(callerProcessor);
-  callerProcessor.connect(silentOutput);
+  tabGain.connect(calleeProcessor);
+  calleeProcessor.connect(silentOutput);
   if (micGain && micProcessor) {
     micGain.connect(micProcessor);
     micProcessor.connect(silentOutput);
@@ -157,7 +157,7 @@ async function startRecording(options) {
     mixAnalyser,
     processors: {
       mixed: mixedProcessor,
-      caller: callerProcessor,
+      callee: calleeProcessor,
       mic: micProcessor
     },
     silentOutput,
@@ -167,17 +167,17 @@ async function startRecording(options) {
     sampleRate: audioContext.sampleRate,
     trackSequences: {
       mixed: 0,
-      caller: 0,
+      callee: 0,
       mic: 0
     },
     trackDroppedChunks: {
       mixed: 0,
-      caller: 0,
+      callee: 0,
       mic: 0
     },
     trackUploadErrors: {
       mixed: [],
-      caller: [],
+      callee: [],
       mic: []
     },
     micCaptured: Boolean(micStream),
@@ -191,7 +191,7 @@ async function startRecording(options) {
   };
 
   mixedProcessor.onaudioprocess = (event) => handleAudioProcess(state, "mixed", event);
-  callerProcessor.onaudioprocess = (event) => handleAudioProcess(state, "caller", event);
+  calleeProcessor.onaudioprocess = (event) => handleAudioProcess(state, "callee", event);
   if (micProcessor) {
     micProcessor.onaudioprocess = (event) => handleAudioProcess(state, "mic", event);
   }

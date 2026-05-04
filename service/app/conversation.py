@@ -6,11 +6,11 @@ from collections import defaultdict
 from typing import Any
 
 
-TRACKS = ("mixed", "mic", "caller")
+TRACKS = ("mixed", "mic", "callee")
 TRACK_FILENAMES = {
     "mixed": ("audio.pcm", "audio.wav"),
     "mic": ("you.pcm", "you.wav"),
-    "caller": ("caller.pcm", "caller.wav"),
+    "callee": ("callee.pcm", "callee.wav"),
 }
 
 STOP_WORDS = {
@@ -81,7 +81,7 @@ def build_conversation(
     *,
     callee_name: str,
     you_reference_text: str = "",
-    caller_reference_text: str = "",
+    callee_reference_text: str = "",
 ) -> tuple[str, dict[str, str]]:
     turns = flatten_turns(segments)
     if not turns:
@@ -91,7 +91,7 @@ def build_conversation(
         turns,
         callee_name=callee_name,
         you_reference_text=you_reference_text,
-        caller_reference_text=caller_reference_text,
+        callee_reference_text=callee_reference_text,
     )
     merged_turns: list[tuple[str, str]] = []
 
@@ -148,7 +148,7 @@ def resolve_speaker_map(
     *,
     callee_name: str,
     you_reference_text: str,
-    caller_reference_text: str,
+    callee_reference_text: str,
 ) -> dict[str, str]:
     aggregates: dict[str, str] = defaultdict(str)
     for turn in turns:
@@ -159,14 +159,14 @@ def resolve_speaker_map(
         return {}
 
     you_tokens = token_set(you_reference_text)
-    caller_tokens = token_set(caller_reference_text)
+    callee_tokens = token_set(callee_reference_text)
     scores: dict[str, tuple[float, float]] = {}
 
     for speaker, text in aggregates.items():
         turn_tokens = token_set(text)
         scores[speaker] = (
             overlap_score(turn_tokens, you_tokens),
-            overlap_score(turn_tokens, caller_tokens),
+            overlap_score(turn_tokens, callee_tokens),
         )
 
     speaker_map: dict[str, str] = {}
@@ -176,10 +176,10 @@ def resolve_speaker_map(
             speaker_map[you_speaker] = "You"
 
     remaining = [speaker for speaker in speakers if speaker not in speaker_map]
-    if caller_tokens and remaining:
-        caller_speaker = max(remaining, key=lambda speaker: scores[speaker][1] - scores[speaker][0])
-        if scores[caller_speaker][1] > 0:
-            speaker_map[caller_speaker] = callee_name
+    if callee_tokens and remaining:
+        callee_speaker = max(remaining, key=lambda speaker: scores[speaker][1] - scores[speaker][0])
+        if scores[callee_speaker][1] > 0:
+            speaker_map[callee_speaker] = callee_name
 
     remaining = [speaker for speaker in speakers if speaker not in speaker_map]
     if len(speakers) == 2 and "You" in speaker_map.values() and remaining:

@@ -17,7 +17,7 @@ def test_build_conversation_resolves_you_and_callee_from_reference_text():
         segments,
         callee_name="Callee",
         you_reference_text="I need to reschedule my appointment",
-        caller_reference_text="Thanks for calling how can I help",
+        callee_reference_text="Thanks for calling how can I help",
     )
 
     assert speaker_map == {"[Speaker 2]": "You", "[Speaker 1]": "Callee"}

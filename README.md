@@ -70,7 +70,7 @@ Important defaults:
 - Speech model: `ibm-granite/granite-speech-4.1-2b-plus`
 - Title model: `unsloth/gemma-4-E4B-it-GGUF`
 - Incremental mixed transcription: `GV_INCREMENTAL_TRANSCRIPTION=1`
-- Incremental `you`/`caller` reference transcription: `GV_INCREMENTAL_REFERENCE_TRANSCRIPTION=1`
+- Incremental `you`/`callee` reference transcription: `GV_INCREMENTAL_REFERENCE_TRANSCRIPTION=1`
 - Reference decode cap: `GV_REFERENCE_MAX_NEW_TOKENS=128`
 - Strict offline mode after caching: `GV_HF_LOCAL_FILES_ONLY=1`
 - Keep large WAV files in final transcript folders: `GV_KEEP_WAV_FILES=0`
@@ -105,7 +105,7 @@ YYYY-MM-DD/
 `audio.opus` is a compressed playback copy of the mixed recording. By default,
 large WAV files are used as temporary processing files and removed before the
 completed transcript folder is finalized. Set `GV_KEEP_WAV_FILES=1` to retain
-`audio.wav`, `you.wav`, and `caller.wav` for debugging or reprocessing.
+`audio.wav`, `you.wav`, and `callee.wav` for debugging or reprocessing.
 
 ## Maintenance Commands
 

@@ -184,7 +184,7 @@ def finish_session(
         "compressed_audio_path": str(record.compressed_audio_path),
         "compressed_audio_error": record.compressed_audio_error,
         "you_audio_path": exposed_wav_path(record, record.mic_wav_path),
-        "caller_audio_path": exposed_wav_path(record, record.caller_wav_path),
+        "callee_audio_path": exposed_wav_path(record, record.callee_wav_path),
         "transcript_path": str(record.transcript_path),
         "conversation_path": str(record.conversation_path),
         "session_dir": str(record.session_dir),
