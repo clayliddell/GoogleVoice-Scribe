@@ -151,7 +151,7 @@ def invoke_pipeline(args: argparse.Namespace, service_url: str, mode: str, phase
     duration = args.warmup_duration_seconds if phase == "warmup" else args.duration_seconds
     command = [
         str(python),
-        str(REPO_ROOT / "scripts" / "benchmark-pipeline.py"),
+        str(REPO_ROOT / "scripts" / "benchmark_pipeline.py"),
         "--service-url",
         service_url,
         "--duration-seconds",
@@ -181,7 +181,7 @@ def invoke_pipeline(args: argparse.Namespace, service_url: str, mode: str, phase
             reports.append(Path(text.removeprefix("report_path=").strip()))
     exit_code = process.wait()
     if exit_code != 0:
-        raise SystemExit(f"benchmark-pipeline.py failed for mode={mode} phase={phase} with exit code {exit_code}.")
+        raise SystemExit(f"benchmark_pipeline.py failed for mode={mode} phase={phase} with exit code {exit_code}.")
     if len(reports) != runs:
         raise SystemExit(f"Expected {runs} report_path lines for mode={mode} phase={phase}, found {len(reports)}.")
     return reports

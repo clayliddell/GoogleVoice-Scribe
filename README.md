@@ -128,7 +128,7 @@ Create missing compressed playback files:
 Benchmark a simulated 15-minute call:
 
 ```cmd
-.\.venv\Scripts\python.exe .\scripts\benchmark-pipeline.py ^
+.\.venv\Scripts\python.exe .\scripts\benchmark_pipeline.py ^
   --duration-seconds 900 ^
   --service-url http://127.0.0.1:8765 ^
   --chunk-frames 4096 ^

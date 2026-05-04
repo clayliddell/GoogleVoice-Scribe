@@ -62,20 +62,6 @@ STOP_WORDS = {
     "your",
 }
 
-BAD_NAME_WORDS = {
-    "call",
-    "chat",
-    "going",
-    "hello",
-    "help",
-    "okay",
-    "recording",
-    "there",
-    "today",
-    "you",
-}
-
-
 def build_conversation(
     segments: list[dict[str, Any]],
     *,
@@ -193,63 +179,6 @@ def resolve_speaker_map(
     return speaker_map
 
 
-def resolve_callee_name(callee_label: str, transcript_text: str) -> str:
-    label = clean_callee_label(callee_label)
-    if label and not looks_like_phone(label):
-        return label
-
-    mentioned_name = extract_addressed_name(transcript_text)
-    if mentioned_name:
-        return mentioned_name
-
-    if label:
-        return label
-
-    phone = extract_phone(callee_label)
-    return phone or "Unknown"
-
-
-def clean_callee_label(value: str) -> str:
-    value = normalize_space(value)
-    if not value:
-        return ""
-
-    value = re.sub(r"\b(?:call|voice call|audio call|phone call|calling|hang up|end call)\b", " ", value, flags=re.I)
-    value = re.sub(r"\b(?:google voice|calls|messages|contacts|keypad)\b", " ", value, flags=re.I)
-    value = normalize_space(value.strip(":-|, "))
-    if len(value) > 80:
-        value = value[:80].rsplit(" ", 1)[0]
-    return value
-
-
-def extract_addressed_name(text: str) -> str:
-    patterns = [
-        r"\b(?:hi|hello|hey|thanks|thank you),?\s+([a-z][a-z0-9 .'-]{1,32})\b",
-        r"\b(?:speaking with|calling)\s+([a-z][a-z0-9 .'-]{1,32})\b",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, flags=re.I)
-        if not match:
-            continue
-
-        candidate = normalize_space(match.group(1).split(".")[0])
-        first = candidate.split(" ", 1)[0].lower()
-        if first and first not in BAD_NAME_WORDS:
-            return title_name(candidate)
-
-    return ""
-
-
-def extract_phone(value: str) -> str:
-    match = re.search(r"(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}", value)
-    return normalize_space(match.group(0)) if match else ""
-
-
-def looks_like_phone(value: str) -> bool:
-    return bool(extract_phone(value)) or bool(re.fullmatch(r"[\d\s()+.-]{7,}", value.strip()))
-
-
 def fallback_subject(text: str, *, default: str = "conversation") -> str:
     if is_greeting_only_conversation(text):
         return "casual check in"
@@ -360,10 +289,6 @@ def overlap_score(turn_tokens: set[str], reference_tokens: set[str]) -> float:
     if not turn_tokens or not reference_tokens:
         return 0.0
     return len(turn_tokens & reference_tokens) / max(1, len(turn_tokens))
-
-
-def title_name(value: str) -> str:
-    return " ".join(part.capitalize() if part.islower() else part for part in value.split())
 
 
 def normalize_space(value: str) -> str:

@@ -702,16 +702,6 @@ def llama_ggml_type_id(llama_cpp: Any, value: str) -> int | None:
     return GGML_TYPE_IDS.get(normalized)
 
 
-def chat_completion_text(response: Any) -> str:
-    if not isinstance(response, dict):
-        return ""
-    choices = response.get("choices") or []
-    if not choices:
-        return ""
-    message = choices[0].get("message") or {}
-    return str(message.get("content") or "").strip()
-
-
 def completion_text(response: Any) -> str:
     if not isinstance(response, dict):
         return ""

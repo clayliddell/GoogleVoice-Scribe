@@ -17,7 +17,7 @@ from app.transcriber import GraniteTranscriber  # noqa: E402
 
 def main() -> None:
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python scripts/test-title-generation.py <session-folder-or-transcript.json>")
+        raise SystemExit("Usage: python scripts/test_title_generation.py <session-folder-or-transcript.json>")
 
     target = Path(sys.argv[1]).expanduser()
     if target.is_dir():

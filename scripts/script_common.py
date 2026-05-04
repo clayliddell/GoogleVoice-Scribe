@@ -65,17 +65,5 @@ def copytree_clean(source: Path, target: Path) -> None:
     shutil.copytree(source, target)
 
 
-def find_executable(candidates: list[str]) -> str | None:
-    for candidate in candidates:
-        path = Path(candidate)
-        if path.exists():
-            return str(path)
-    for candidate in candidates:
-        found = shutil.which(Path(candidate).name)
-        if found:
-            return found
-    return None
-
-
 def windows_creationflags() -> int:
     return 0x08000000 if os.name == "nt" else 0
