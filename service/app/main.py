@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from .config import Settings
 from .sessions import SessionManager
+from .version import APP_NAME, __version__
 
 
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +18,7 @@ logger = logging.getLogger("google_voice_transcriber")
 settings = Settings.from_env()
 manager = SessionManager(settings)
 
-app = FastAPI(title="Google Voice Local Transcriber", version="0.1.0")
+app = FastAPI(title=APP_NAME, version=__version__)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"chrome-extension://.*|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?",
@@ -89,6 +90,7 @@ def health() -> dict[str, Any]:
         "speaker_reference_window_seconds": settings.speaker_reference_window_seconds,
         "speaker_reference_min_rms": settings.speaker_reference_min_rms,
         "incremental_transcription": settings.incremental_transcription,
+        "incremental_reference_transcription": settings.incremental_reference_transcription,
         "incremental_segment_seconds": settings.incremental_segment_seconds,
         "incremental_boundary_search_seconds": settings.incremental_boundary_search_seconds,
         "incremental_max_segment_seconds": settings.incremental_max_segment_seconds,
@@ -99,6 +101,9 @@ def health() -> dict[str, Any]:
         "speech_model_warmup": manager.speech_warmup_state(),
         "transcribe": settings.transcribe,
         "segment_seconds": settings.segment_seconds,
+        "max_new_tokens": settings.max_new_tokens,
+        "reference_max_new_tokens": settings.reference_max_new_tokens,
+        "version": __version__,
     }
 
 

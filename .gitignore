@@ -11,6 +11,7 @@ logs/
 benchmarks/
 .env
 .env.*
+!.env.example
 *.pcm
 *.wav
 *.opus

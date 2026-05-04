@@ -86,6 +86,7 @@ class GraniteTranscriber:
         mode: str = "speaker_attributed_asr",
         start_offset_seconds: float = 0.0,
         initial_prefix_text: str = "",
+        max_new_tokens: int | None = None,
     ) -> TranscriptionResult:
         self._load_model()
 
@@ -105,7 +106,12 @@ class GraniteTranscriber:
             previous_text = " ".join(text_parts).strip()
             prefix_text = previous_text[-4000:] if previous_text else None
             prompt = SAA_PROMPT if mode == "speaker_attributed_asr" else ASR_PROMPT
-            text = self._transcribe_segment(segment_audio, prompt=prompt, prefix_text=prefix_text).strip()
+            text = self._transcribe_segment(
+                segment_audio,
+                prompt=prompt,
+                prefix_text=prefix_text,
+                max_new_tokens=max_new_tokens,
+            ).strip()
             text_parts.append(text)
             emitted_parts.append(text)
 
@@ -574,7 +580,14 @@ class GraniteTranscriber:
         del model
         clear_cuda_cache()
 
-    def _transcribe_segment(self, audio: np.ndarray, *, prompt: str, prefix_text: str | None) -> str:
+    def _transcribe_segment(
+        self,
+        audio: np.ndarray,
+        *,
+        prompt: str,
+        prefix_text: str | None,
+        max_new_tokens: int | None = None,
+    ) -> str:
         import torch
 
         today = datetime.now().strftime("%B %d, %Y")
@@ -616,7 +629,7 @@ class GraniteTranscriber:
         with torch.inference_mode():
             outputs = self.model.generate(
                 **inputs,
-                max_new_tokens=self.settings.max_new_tokens,
+                max_new_tokens=max_new_tokens or self.settings.max_new_tokens,
                 do_sample=False,
                 num_beams=1,
             )

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Google Voice Local Transcriber",
-  "description": "Records outgoing Google Voice calls and sends local audio to a local Granite Speech transcriber.",
+  "name": "GoogleVoice Scribe",
+  "description": "Records outgoing Google Voice calls and sends local audio to the GoogleVoice Scribe server.",
   "version": "0.1.0",
   "minimum_chrome_version": "116",
   "action": {

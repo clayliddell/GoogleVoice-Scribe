@@ -39,6 +39,7 @@ class Settings:
     speaker_reference_window_seconds: int
     speaker_reference_min_rms: float
     incremental_transcription: bool
+    incremental_reference_transcription: bool
     incremental_segment_seconds: int
     incremental_boundary_search_seconds: float
     incremental_max_segment_seconds: float
@@ -50,6 +51,7 @@ class Settings:
     segment_seconds: int
     sample_rate: int
     max_new_tokens: int
+    reference_max_new_tokens: int
     force_cpu: bool
     torch_dtype: str
 
@@ -90,6 +92,7 @@ class Settings:
             speaker_reference_window_seconds=int(os.getenv("GV_SPEAKER_REFERENCE_WINDOW_SECONDS", "20")),
             speaker_reference_min_rms=float(os.getenv("GV_SPEAKER_REFERENCE_MIN_RMS", "0.003")),
             incremental_transcription=parse_bool(os.getenv("GV_INCREMENTAL_TRANSCRIPTION", "1")),
+            incremental_reference_transcription=parse_bool(os.getenv("GV_INCREMENTAL_REFERENCE_TRANSCRIPTION", "1")),
             incremental_segment_seconds=int(os.getenv("GV_INCREMENTAL_SEGMENT_SECONDS", "60")),
             incremental_boundary_search_seconds=float(os.getenv("GV_INCREMENTAL_BOUNDARY_SEARCH_SECONDS", "3")),
             incremental_max_segment_seconds=float(os.getenv("GV_INCREMENTAL_MAX_SEGMENT_SECONDS", "75")),
@@ -101,6 +104,7 @@ class Settings:
             segment_seconds=int(os.getenv("GV_SEGMENT_SECONDS", "240")),
             sample_rate=int(os.getenv("GV_SAMPLE_RATE", "16000")),
             max_new_tokens=int(os.getenv("GV_MAX_NEW_TOKENS", "2000")),
+            reference_max_new_tokens=int(os.getenv("GV_REFERENCE_MAX_NEW_TOKENS", "128")),
             force_cpu=parse_bool(os.getenv("GV_FORCE_CPU", "0")),
             torch_dtype=os.getenv("GV_TORCH_DTYPE", "auto").lower(),
         )

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "googlevoice-scribe"
+version = "0.1.0"
+description = "Chromium extension and local server for recording and transcribing Google Voice calls."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { file = "LICENSE" }
+authors = [{ name = "Clay Liddell" }]
+keywords = ["google-voice", "transcription", "speech-to-text", "chromium-extension"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: GPU :: NVIDIA CUDA",
+  "Framework :: FastAPI",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "numpy>=1.26",
+  "accelerate>=0.34",
+  "torchaudio",
+  "torchvision",
+  "torchcodec",
+  "transformers>=5.7",
+  "huggingface_hub>=0.24",
+  "imageio-ffmpeg>=0.5",
+  "sentencepiece",
+  "pillow>=10",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pyinstaller>=6.11",
+]
+
+[project.scripts]
+googlevoice-scribe-server = "app.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/clayliddell/GoogleVoice-Scribe"
+Repository = "https://github.com/clayliddell/GoogleVoice-Scribe"
+Issues = "https://github.com/clayliddell/GoogleVoice-Scribe/issues"
+
+[tool.setuptools]
+package-dir = { "" = "service" }
+
+[tool.setuptools.packages.find]
+where = ["service"]
+include = ["app*"]

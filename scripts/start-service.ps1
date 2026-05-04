@@ -11,4 +11,4 @@ if (Test-Path (Join-Path $repoRoot ".venv\Scripts\python.exe")) {
 
 Set-Location $serviceRoot
 $port = if ($env:GV_SERVICE_PORT) { $env:GV_SERVICE_PORT } else { "8765" }
-& $python -m uvicorn app.main:app --host 127.0.0.1 --port $port
+& $python -m app.cli --host 127.0.0.1 --port $port

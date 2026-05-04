@@ -233,7 +233,11 @@ class SessionManager:
 
         if record.chunks_received % 75 == 0:
             self._write_metadata(record)
-        if self.settings.transcribe and self.settings.incremental_transcription:
+        if (
+            self.settings.transcribe
+            and self.settings.incremental_transcription
+            and (track == "mixed" or self.settings.incremental_reference_transcription)
+        ):
             self._queue_incremental_transcription(record)
         return record
 
@@ -328,6 +332,7 @@ class SessionManager:
             timings["incremental_audio_seconds"] = round(record.incremental_audio_seconds, 3)
             timings["incremental_boundary_decision_count"] = len(record.incremental_boundary_decisions)
             timings["incremental_boundary_reasons"] = boundary_reason_counts(record.incremental_boundary_decisions)
+            timings["incremental_reference_transcription"] = self.settings.incremental_reference_transcription
             timings["incremental_reference_transcribe_seconds"] = {
                 track: round(seconds, 3)
                 for track, seconds in record.incremental_reference_transcribe_seconds.items()
@@ -552,7 +557,11 @@ class SessionManager:
 
     def _speaker_reference_text(self, record: SessionRecord, *, track: str, wav_path: Path) -> tuple[str, float, str]:
         tasks_completed = record.incremental_reference_tasks_completed.get(track, 0)
-        if self.settings.incremental_transcription and tasks_completed > 0:
+        if (
+            self.settings.incremental_reference_transcription
+            and self.settings.incremental_transcription
+            and tasks_completed > 0
+        ):
             return (
                 record.incremental_reference_text.get(track, ""),
                 record.incremental_reference_audio_seconds.get(track, 0.0),
@@ -579,7 +588,8 @@ class SessionManager:
         if frame_size <= 0 or not record.pcm_path.exists():
             return
 
-        track_paths = {track: track_pcm_path(record, track) for track in TRACKS}
+        queued_tracks = TRACKS if self.settings.incremental_reference_transcription else ("mixed",)
+        track_paths = {track: track_pcm_path(record, track) for track in queued_tracks}
         if any(not path.exists() for path in track_paths.values()):
             return
 
@@ -679,6 +689,8 @@ class SessionManager:
                 mixed_elapsed = elapsed_seconds(mixed_started)
 
                 for reference_track in ("mic", "caller"):
+                    if not self.settings.incremental_reference_transcription:
+                        break
                     reference_audio = task.track_audio.get(reference_track)
                     if reference_audio is None or reference_audio.size == 0:
                         continue
@@ -690,6 +702,7 @@ class SessionManager:
                             task.sample_rate,
                             mode="plain_asr",
                             start_offset_seconds=task.audio_start_sample / float(task.sample_rate),
+                            max_new_tokens=self.settings.reference_max_new_tokens,
                         )
                         reference_texts[reference_track] = reference_result.full_text
                         reference_seconds[reference_track] = elapsed_seconds(reference_started)
@@ -787,11 +800,15 @@ class SessionManager:
                 max(0, int(round(self.settings.incremental_overlap_seconds * source_rate))),
             )
             tail_audio_start_sample = completed_until_sample - tail_overlap_samples
-            tail_reference_audio = load_reference_tail_audio(
-                record,
-                start_sample=tail_audio_start_sample,
-                end_sample=audio.size,
-                source_rate=source_rate,
+            tail_reference_audio = (
+                load_reference_tail_audio(
+                    record,
+                    start_sample=tail_audio_start_sample,
+                    end_sample=audio.size,
+                    source_rate=source_rate,
+                )
+                if self.settings.incremental_reference_transcription
+                else {}
             )
             reference_texts: dict[str, str] = {}
             reference_seconds: dict[str, float] = {}
@@ -818,6 +835,7 @@ class SessionManager:
                             reference_rate,
                             mode="plain_asr",
                             start_offset_seconds=tail_audio_start_sample / float(source_rate),
+                            max_new_tokens=self.settings.reference_max_new_tokens,
                         )
                         reference_texts[reference_track] = reference_result.full_text
                         reference_seconds[reference_track] = elapsed_seconds(reference_started)
@@ -897,6 +915,7 @@ class SessionManager:
             },
             "incremental_transcription": {
                 "enabled": self.settings.incremental_transcription,
+                "reference_transcription_enabled": self.settings.incremental_reference_transcription,
                 "segment_seconds": self.settings.incremental_segment_seconds,
                 "boundary_search_seconds": self.settings.incremental_boundary_search_seconds,
                 "max_segment_seconds": self.settings.incremental_max_segment_seconds,
@@ -932,6 +951,7 @@ class SessionManager:
                 "seconds": self.settings.speaker_reference_seconds,
                 "window_seconds": self.settings.speaker_reference_window_seconds,
                 "min_rms": self.settings.speaker_reference_min_rms,
+                "reference_max_new_tokens": self.settings.reference_max_new_tokens,
             },
             "capture": {
                 "mic_captured": record.mic_captured,
@@ -1324,7 +1344,12 @@ def transcribe_reference_track(
             return "", 0.0
 
         with transcriber_lock:
-            text = transcriber.transcribe_audio(reference_audio, source_rate, mode="plain_asr").full_text
+            text = transcriber.transcribe_audio(
+                reference_audio,
+                source_rate,
+                mode="plain_asr",
+                max_new_tokens=settings.reference_max_new_tokens,
+            ).full_text
         return text, round(reference_audio.size / float(source_rate), 3)
     except Exception:
         return "", 0.0
