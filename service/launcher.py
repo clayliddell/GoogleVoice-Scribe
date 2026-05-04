@@ -33,11 +33,11 @@ def main() -> int:
         create_venv(root / ".venv")
 
     if not args.no_install and not dependencies_ready(venv_python):
-        install_script = scripts_dir / "install-service-deps.ps1"
+        install_script = scripts_dir / "install_service_deps.py"
         if not install_script.exists():
             print(f"Missing dependency installer: {install_script}", file=sys.stderr)
             return 2
-        run(["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", str(install_script)], cwd=root)
+        run([str(venv_python), str(install_script)], cwd=root)
 
     if args.install_only:
         return 0
@@ -67,8 +67,14 @@ def create_venv(venv_dir: Path) -> None:
 
 def dependencies_ready(venv_python: Path) -> bool:
     check = (
-        "import fastapi, uvicorn, numpy, torch, torchaudio, transformers, huggingface_hub; "
+        "import os, sys; "
+        "torch_lib = os.path.join(sys.prefix, 'Lib', 'site-packages', 'torch', 'lib'); "
+        "os.add_dll_directory(torch_lib) if os.path.isdir(torch_lib) else None; "
+        "import fastapi, uvicorn, numpy, torch, torchaudio, torchvision, transformers, huggingface_hub; "
         "import llama_cpp; "
+        "assert torch.__version__.startswith('2.6.0+cu124'), torch.__version__; "
+        "assert torchaudio.__version__.startswith('2.6.0+cu124'), torchaudio.__version__; "
+        "assert torchvision.__version__.startswith('0.21.0+cu124'), torchvision.__version__; "
         "print('dependencies ready')"
     )
     completed = subprocess.run(

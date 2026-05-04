@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="GoogleVoiceScribe.png" alt="GoogleVoice Scribe app icon" width="96">
+</p>
+
 # GoogleVoice Scribe
 
 GoogleVoice Scribe is a Chromium extension plus a local Windows transcription
@@ -47,12 +51,11 @@ microphone access before arming again.
 
 ## Development Setup
 
-```powershell
+```cmd
 py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-.\scripts\install-service-deps.ps1
-.\scripts\start-service.ps1
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe .\scripts\install_service_deps.py
+.\.venv\Scripts\python.exe .\scripts\start_service.py
 ```
 
 Load `extension/` as an unpacked Chromium extension during development.
@@ -78,9 +81,9 @@ Important defaults:
 
 Disable 3-track incremental reference transcription on weaker GPUs:
 
-```powershell
-$env:GV_INCREMENTAL_REFERENCE_TRANSCRIPTION = "0"
-.\scripts\start-service.ps1
+```cmd
+set GV_INCREMENTAL_REFERENCE_TRANSCRIPTION=0
+.\.venv\Scripts\python.exe .\scripts\start_service.py
 ```
 
 ## Output
@@ -112,34 +115,34 @@ completed transcript folder is finalized. Set `GV_KEEP_WAV_FILES=1` to retain
 
 Backfill conversations:
 
-```powershell
-.\scripts\backfill-conversations.ps1
+```cmd
+.\.venv\Scripts\python.exe .\scripts\backfill_conversations.py
 ```
 
 Create missing compressed playback files:
 
-```powershell
-.\scripts\compress-recordings.ps1
+```cmd
+.\.venv\Scripts\python.exe .\scripts\compress_recordings.py
 ```
 
 Benchmark a simulated 15-minute call:
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\benchmark-pipeline.py `
-  --duration-seconds 900 `
-  --service-url http://127.0.0.1:8765 `
-  --chunk-frames 4096 `
-  --sample-rate 48000 `
-  --realtime-upload `
+```cmd
+.\.venv\Scripts\python.exe .\scripts\benchmark-pipeline.py ^
+  --duration-seconds 900 ^
+  --service-url http://127.0.0.1:8765 ^
+  --chunk-frames 4096 ^
+  --sample-rate 48000 ^
+  --realtime-upload ^
   --progress-every 100
 ```
 
 Compare warm GPU vs CPU pipeline performance:
 
-```powershell
-.\scripts\benchmark-cpu-gpu.ps1 `
-  -SourceSession "C:\Users\Pew Pew Control\Documents\Google Voice Transcripts\YYYY-MM-DD\SESSION_FOLDER" `
-  -DurationSeconds 900
+```cmd
+.\.venv\Scripts\python.exe .\scripts\benchmark_cpu_gpu.py ^
+  --source-session "C:\Users\Pew Pew Control\Documents\Google Voice Transcripts\YYYY-MM-DD\SESSION_FOLDER" ^
+  --duration-seconds 900
 ```
 
 The comparison uses a short warmup replay by default, then two measured realtime
@@ -147,9 +150,9 @@ runs for each mode.
 
 ## Build Release Assets
 
-```powershell
-.\scripts\build-extension.ps1
-.\scripts\build-installer.ps1
+```cmd
+.\.venv\Scripts\python.exe .\scripts\build_extension.py
+.\.venv\Scripts\python.exe .\scripts\build_installer.py
 ```
 
 The generated `.crx` and installer `.exe` are written to `dist/`. The CRX key is
@@ -157,8 +160,8 @@ stored locally under `build\secrets` and is ignored by Git.
 
 To create or update the GitHub release for `v0.2.0`:
 
-```powershell
-.\scripts\release.ps1
+```cmd
+.\.venv\Scripts\python.exe .\scripts\release.py
 ```
 
 ## Legal

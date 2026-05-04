@@ -2,11 +2,9 @@ fastapi>=0.111
 uvicorn[standard]>=0.30
 numpy>=1.26
 accelerate>=0.34
-torchaudio
-torchvision
-torchcodec
 transformers>=5.7
 huggingface_hub>=0.24
 imageio-ffmpeg>=0.5
 sentencepiece
 pillow>=10
+pywin32>=306; platform_system == "Windows"
