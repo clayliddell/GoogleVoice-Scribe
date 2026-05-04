@@ -11,6 +11,10 @@ from script_common import BUILD_ROOT, DIST_ROOT, REPO_ROOT, copytree_clean, read
 REQUIRED_FILES = (
     "manifest.json",
     "background.js",
+    "icons/icon16.png",
+    "icons/icon32.png",
+    "icons/icon48.png",
+    "icons/icon128.png",
     "offscreen.html",
     "offscreen.js",
     "content/google_voice.js",

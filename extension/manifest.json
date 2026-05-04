@@ -4,8 +4,20 @@
   "description": "Records outgoing Google Voice calls and sends local audio to the GoogleVoice Scribe server.",
   "version": "0.2.0",
   "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
-    "default_title": "Arm Google Voice recorder"
+    "default_title": "Arm Google Voice recorder",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "options_page": "ui/permission.html",
   "background": {
