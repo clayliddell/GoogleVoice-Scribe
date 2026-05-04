@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Google Voice Local Transcriber",
+  "description": "Records outgoing Google Voice calls and sends local audio to a local Granite Speech transcriber.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Arm Google Voice recorder"
+  },
+  "options_page": "ui/permission.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "offscreen",
+    "scripting",
+    "storage",
+    "tabCapture"
+  ],
+  "host_permissions": [
+    "https://voice.google.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://voice.google.com/*"
+      ],
+      "js": [
+        "content/google_voice.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
