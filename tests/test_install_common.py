@@ -10,6 +10,6 @@ def test_compare_versions_handles_equal_newer_and_older():
 
 
 def test_config_quote_round_trip_for_paths_with_spaces():
-    value = r"C:\Users\Pew Pew Control\Documents\Google Voice Transcripts"
+    value = r"C:\Users\User\Documents\Google Voice Transcripts"
 
     assert unquote(quote_if_needed(value)) == value
