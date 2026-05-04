@@ -93,10 +93,16 @@ class SessionRecord:
     incremental_tasks_submitted: int = 0
     incremental_tasks_completed: int = 0
     incremental_transcribe_seconds: float = 0.0
+    incremental_mixed_transcribe_seconds: float = 0.0
     incremental_audio_seconds: float = 0.0
     incremental_transcript_error: str | None = None
     incremental_segments: list[dict[str, Any]] = field(default_factory=list)
     incremental_boundary_decisions: list[dict[str, Any]] = field(default_factory=list)
+    incremental_reference_text: dict[str, str] = field(default_factory=dict)
+    incremental_reference_transcribe_seconds: dict[str, float] = field(default_factory=dict)
+    incremental_reference_audio_seconds: dict[str, float] = field(default_factory=dict)
+    incremental_reference_tasks_completed: dict[str, int] = field(default_factory=dict)
+    incremental_reference_errors: dict[str, str] = field(default_factory=dict)
     speech_warmup_requested: bool = False
     speech_warmup_status: str = "not_requested"
     speech_warmup_seconds: float | None = None
@@ -114,6 +120,7 @@ class IncrementalTranscriptionTask:
     boundary_rms: float | None
     overlap_samples: int
     audio: np.ndarray
+    track_audio: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 class SessionManager:
@@ -172,6 +179,11 @@ class SessionManager:
             track_expected_sequence={track: 0 for track in TRACKS},
             track_sequence_gaps={track: [] for track in TRACKS},
             track_upload_errors={track: [] for track in TRACKS},
+            incremental_reference_text={"mic": "", "caller": ""},
+            incremental_reference_transcribe_seconds={"mic": 0.0, "caller": 0.0},
+            incremental_reference_audio_seconds={"mic": 0.0, "caller": 0.0},
+            incremental_reference_tasks_completed={"mic": 0, "caller": 0},
+            incremental_reference_errors={},
         )
 
         for track in TRACKS:
@@ -221,7 +233,7 @@ class SessionManager:
 
         if record.chunks_received % 75 == 0:
             self._write_metadata(record)
-        if track == "mixed" and self.settings.transcribe and self.settings.incremental_transcription:
+        if self.settings.transcribe and self.settings.incremental_transcription:
             self._queue_incremental_transcription(record)
         return record
 
@@ -312,27 +324,37 @@ class SessionManager:
             timings["mixed_transcribe_seconds"] = elapsed_seconds(started)
             timings["mixed_transcription_source"] = "incremental" if record.incremental_completed_until_sample else "final"
             timings["incremental_transcribe_seconds"] = round(record.incremental_transcribe_seconds, 3)
+            timings["incremental_mixed_transcribe_seconds"] = round(record.incremental_mixed_transcribe_seconds, 3)
             timings["incremental_audio_seconds"] = round(record.incremental_audio_seconds, 3)
             timings["incremental_boundary_decision_count"] = len(record.incremental_boundary_decisions)
             timings["incremental_boundary_reasons"] = boundary_reason_counts(record.incremental_boundary_decisions)
+            timings["incremental_reference_transcribe_seconds"] = {
+                track: round(seconds, 3)
+                for track, seconds in record.incremental_reference_transcribe_seconds.items()
+            }
+            timings["incremental_reference_audio_seconds"] = {
+                track: round(seconds, 3)
+                for track, seconds in record.incremental_reference_audio_seconds.items()
+            }
+            timings["incremental_reference_tasks_completed"] = dict(record.incremental_reference_tasks_completed)
             started = time.perf_counter()
-            you_reference, you_reference_audio_seconds = transcribe_reference_track(
-                self._get_transcriber(),
-                record.mic_wav_path,
-                settings=self.settings,
-                transcriber_lock=self._transcriber_lock,
+            you_reference, you_reference_audio_seconds, you_reference_source = self._speaker_reference_text(
+                record,
+                track="mic",
+                wav_path=record.mic_wav_path,
             )
             timings["you_reference_transcribe_seconds"] = elapsed_seconds(started)
             timings["you_reference_audio_seconds"] = round(you_reference_audio_seconds, 3)
+            timings["you_reference_source"] = you_reference_source
             started = time.perf_counter()
-            caller_reference, caller_reference_audio_seconds = transcribe_reference_track(
-                self._get_transcriber(),
-                record.caller_wav_path,
-                settings=self.settings,
-                transcriber_lock=self._transcriber_lock,
+            caller_reference, caller_reference_audio_seconds, caller_reference_source = self._speaker_reference_text(
+                record,
+                track="caller",
+                wav_path=record.caller_wav_path,
             )
             timings["caller_reference_transcribe_seconds"] = elapsed_seconds(started)
             timings["caller_reference_audio_seconds"] = round(caller_reference_audio_seconds, 3)
+            timings["caller_reference_source"] = caller_reference_source
             timings["speaker_reference_mode"] = self.settings.speaker_reference_mode
             record.callee = "Callee"
             started = time.perf_counter()
@@ -528,6 +550,23 @@ class SessionManager:
             record.speech_warmup_error = error_text
             self._write_metadata(record)
 
+    def _speaker_reference_text(self, record: SessionRecord, *, track: str, wav_path: Path) -> tuple[str, float, str]:
+        tasks_completed = record.incremental_reference_tasks_completed.get(track, 0)
+        if self.settings.incremental_transcription and tasks_completed > 0:
+            return (
+                record.incremental_reference_text.get(track, ""),
+                record.incremental_reference_audio_seconds.get(track, 0.0),
+                "incremental",
+            )
+
+        text, audio_seconds = transcribe_reference_track(
+            self._get_transcriber(),
+            wav_path,
+            settings=self.settings,
+            transcriber_lock=self._transcriber_lock,
+        )
+        return text, audio_seconds, "post_call"
+
     def _queue_incremental_transcription(self, record: SessionRecord) -> None:
         if not record.sample_rate or not record.channels:
             return
@@ -540,7 +579,15 @@ class SessionManager:
         if frame_size <= 0 or not record.pcm_path.exists():
             return
 
-        available_samples = record.pcm_path.stat().st_size // frame_size
+        track_paths = {track: track_pcm_path(record, track) for track in TRACKS}
+        if any(not path.exists() for path in track_paths.values()):
+            return
+
+        track_available_samples = {
+            track: path.stat().st_size // frame_size
+            for track, path in track_paths.items()
+        }
+        available_samples = min(track_available_samples.values())
         while True:
             decision = choose_incremental_boundary(
                 record.pcm_path,
@@ -560,8 +607,12 @@ class SessionManager:
                 max(0, int(round(self.settings.incremental_overlap_seconds * record.sample_rate))),
             )
             audio_start_sample = commit_start_sample - overlap_samples
-            data = read_pcm16_range(record.pcm_path, audio_start_sample, commit_end_sample, channels=record.channels)
-            audio = pcm16_bytes_to_mono_float32(data, channels=record.channels)
+            track_audio = {}
+            for queued_track, path in track_paths.items():
+                data = read_pcm16_range(path, audio_start_sample, commit_end_sample, channels=record.channels)
+                track_audio[queued_track] = pcm16_bytes_to_mono_float32(data, channels=record.channels)
+
+            audio = track_audio.get("mixed", np.array([], dtype=np.float32))
             if audio.size == 0:
                 return
 
@@ -590,6 +641,7 @@ class SessionManager:
                     boundary_rms=decision.get("boundary_rms"),
                     overlap_samples=overlap_samples,
                     audio=audio,
+                    track_audio=track_audio,
                 )
             )
 
@@ -610,14 +662,43 @@ class SessionManager:
         started = time.perf_counter()
         try:
             prefix_text = segments_full_text(record.incremental_segments)
+            reference_texts: dict[str, str] = {}
+            reference_seconds: dict[str, float] = {}
+            reference_audio_seconds: dict[str, float] = {}
+            reference_errors: dict[str, str] = {}
             with self._transcriber_lock:
-                result = self._get_transcriber().transcribe_audio(
+                transcriber = self._get_transcriber()
+                mixed_started = time.perf_counter()
+                result = transcriber.transcribe_audio(
                     task.audio,
                     task.sample_rate,
                     mode="speaker_attributed_asr",
                     start_offset_seconds=task.audio_start_sample / float(task.sample_rate),
                     initial_prefix_text=prefix_text,
                 )
+                mixed_elapsed = elapsed_seconds(mixed_started)
+
+                for reference_track in ("mic", "caller"):
+                    reference_audio = task.track_audio.get(reference_track)
+                    if reference_audio is None or reference_audio.size == 0:
+                        continue
+
+                    reference_started = time.perf_counter()
+                    try:
+                        reference_result = transcriber.transcribe_audio(
+                            reference_audio,
+                            task.sample_rate,
+                            mode="plain_asr",
+                            start_offset_seconds=task.audio_start_sample / float(task.sample_rate),
+                        )
+                        reference_texts[reference_track] = reference_result.full_text
+                        reference_seconds[reference_track] = elapsed_seconds(reference_started)
+                        reference_audio_seconds[reference_track] = round(
+                            reference_audio.size / float(task.sample_rate),
+                            3,
+                        )
+                    except Exception as error:
+                        reference_errors[reference_track] = str(error)
 
             new_segments = prepare_incremental_segments(
                 result.segments,
@@ -636,9 +717,20 @@ class SessionManager:
                 record.incremental_transcribe_seconds + elapsed_seconds(started),
                 3,
             )
+            record.incremental_mixed_transcribe_seconds = round(
+                record.incremental_mixed_transcribe_seconds + mixed_elapsed,
+                3,
+            )
             record.incremental_audio_seconds = round(
                 record.incremental_audio_seconds + (task.commit_end_sample - task.audio_start_sample) / float(task.sample_rate),
                 3,
+            )
+            apply_incremental_reference_results(
+                record,
+                reference_texts=reference_texts,
+                reference_seconds=reference_seconds,
+                reference_audio_seconds=reference_audio_seconds,
+                reference_errors=reference_errors,
             )
             self._write_incremental_draft(record)
         except Exception as error:
@@ -695,14 +787,46 @@ class SessionManager:
                 max(0, int(round(self.settings.incremental_overlap_seconds * source_rate))),
             )
             tail_audio_start_sample = completed_until_sample - tail_overlap_samples
+            tail_reference_audio = load_reference_tail_audio(
+                record,
+                start_sample=tail_audio_start_sample,
+                end_sample=audio.size,
+                source_rate=source_rate,
+            )
+            reference_texts: dict[str, str] = {}
+            reference_seconds: dict[str, float] = {}
+            reference_audio_seconds: dict[str, float] = {}
+            reference_errors: dict[str, str] = {}
             with self._transcriber_lock:
-                tail_result = self._get_transcriber().transcribe_audio(
+                transcriber = self._get_transcriber()
+                tail_result = transcriber.transcribe_audio(
                     audio[tail_audio_start_sample:],
                     source_rate,
                     mode="speaker_attributed_asr",
                     start_offset_seconds=tail_audio_start_sample / float(source_rate),
                     initial_prefix_text=prefix_text,
                 )
+                for reference_track, reference_item in tail_reference_audio.items():
+                    reference_audio, reference_rate = reference_item
+                    if reference_audio.size == 0:
+                        continue
+
+                    reference_started = time.perf_counter()
+                    try:
+                        reference_result = transcriber.transcribe_audio(
+                            reference_audio,
+                            reference_rate,
+                            mode="plain_asr",
+                            start_offset_seconds=tail_audio_start_sample / float(source_rate),
+                        )
+                        reference_texts[reference_track] = reference_result.full_text
+                        reference_seconds[reference_track] = elapsed_seconds(reference_started)
+                        reference_audio_seconds[reference_track] = round(
+                            reference_audio.size / float(reference_rate),
+                            3,
+                        )
+                    except Exception as error:
+                        reference_errors[reference_track] = str(error)
             tail_segments = prepare_incremental_segments(
                 tail_result.segments,
                 segments,
@@ -724,6 +848,13 @@ class SessionManager:
                     boundary_rms=None,
                     overlap_samples=tail_overlap_samples,
                 )
+            )
+            apply_incremental_reference_results(
+                record,
+                reference_texts=reference_texts,
+                reference_seconds=reference_seconds,
+                reference_audio_seconds=reference_audio_seconds,
+                reference_errors=reference_errors,
             )
             segments = reindex_segments(segments + tail_segments)
 
@@ -782,8 +913,19 @@ class SessionManager:
                 if record.sample_rate
                 else 0.0,
                 "transcribe_seconds": record.incremental_transcribe_seconds,
+                "mixed_transcribe_seconds": record.incremental_mixed_transcribe_seconds,
                 "audio_seconds": record.incremental_audio_seconds,
                 "error": record.incremental_transcript_error,
+                "speaker_reference": {
+                    "text_chars": {
+                        track: len(text)
+                        for track, text in record.incremental_reference_text.items()
+                    },
+                    "transcribe_seconds": record.incremental_reference_transcribe_seconds,
+                    "audio_seconds": record.incremental_reference_audio_seconds,
+                    "tasks_completed": record.incremental_reference_tasks_completed,
+                    "errors": record.incremental_reference_errors,
+                },
             },
             "speaker_reference": {
                 "mode": self.settings.speaker_reference_mode,
@@ -1101,6 +1243,52 @@ def segments_full_text(segments: list[dict[str, Any]]) -> str:
     return "\n".join(str(segment.get("text") or "").strip() for segment in segments if str(segment.get("text") or "").strip())
 
 
+def apply_incremental_reference_results(
+    record: SessionRecord,
+    *,
+    reference_texts: dict[str, str],
+    reference_seconds: dict[str, float],
+    reference_audio_seconds: dict[str, float],
+    reference_errors: dict[str, str],
+) -> None:
+    for reference_track in ("mic", "caller"):
+        if reference_track in reference_texts:
+            append_incremental_reference_text(record, reference_track, reference_texts[reference_track])
+            record.incremental_reference_errors.pop(reference_track, None)
+        if reference_track in reference_seconds:
+            record.incremental_reference_transcribe_seconds[reference_track] = round(
+                record.incremental_reference_transcribe_seconds.get(reference_track, 0.0)
+                + reference_seconds[reference_track],
+                3,
+            )
+        if reference_track in reference_audio_seconds:
+            record.incremental_reference_audio_seconds[reference_track] = round(
+                record.incremental_reference_audio_seconds.get(reference_track, 0.0)
+                + reference_audio_seconds[reference_track],
+                3,
+            )
+        if reference_track in reference_texts or reference_track in reference_errors:
+            record.incremental_reference_tasks_completed[reference_track] = (
+                record.incremental_reference_tasks_completed.get(reference_track, 0) + 1
+            )
+        if reference_track in reference_errors:
+            record.incremental_reference_errors[reference_track] = reference_errors[reference_track]
+
+
+def append_incremental_reference_text(record: SessionRecord, track: str, text: str) -> None:
+    text = normalize_text_space(text)
+    if not text:
+        return
+
+    previous = normalize_text_space(record.incremental_reference_text.get(track, ""))
+    if previous:
+        text = trim_repeated_text_prefix(previous, text)
+    if not text:
+        return
+
+    record.incremental_reference_text[track] = normalize_text_space(f"{previous} {text}")
+
+
 def reindex_segments(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     sorted_segments = sorted(
         (dict(segment) for segment in segments),
@@ -1140,6 +1328,41 @@ def transcribe_reference_track(
         return text, round(reference_audio.size / float(source_rate), 3)
     except Exception:
         return "", 0.0
+
+
+def load_reference_tail_audio(
+    record: SessionRecord,
+    *,
+    start_sample: int,
+    end_sample: int,
+    source_rate: int,
+) -> dict[str, tuple[np.ndarray, int]]:
+    items: dict[str, tuple[np.ndarray, int]] = {}
+    for track in ("mic", "caller"):
+        wav_path = track_wav_path(record, track)
+        if not wav_path.exists() or wav_path.stat().st_size <= 44:
+            continue
+
+        try:
+            audio, sample_rate = load_wav_mono_float32(wav_path)
+        except Exception:
+            continue
+
+        if sample_rate <= 0 or audio.size == 0:
+            continue
+
+        if source_rate > 0 and sample_rate != source_rate:
+            track_start = int(round(start_sample * sample_rate / float(source_rate)))
+            track_end = int(round(end_sample * sample_rate / float(source_rate)))
+        else:
+            track_start = start_sample
+            track_end = end_sample
+
+        track_start = max(0, min(track_start, audio.size))
+        track_end = max(track_start, min(track_end, audio.size))
+        items[track] = (audio[track_start:track_end], sample_rate)
+
+    return items
 
 
 def select_reference_audio(audio: np.ndarray, sample_rate: int, *, settings: Settings) -> np.ndarray:
