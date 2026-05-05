@@ -1,8 +1,10 @@
 fastapi>=0.111
 uvicorn[standard]>=0.30
 numpy>=1.26
-accelerate>=0.34
-transformers>=5.7
+accelerate>=1.1
+# Granite Speech Plus support landed after Transformers 5.7. Keep this source
+# pin until a PyPI release includes transformers.models.granite_speech_plus.
+transformers @ https://github.com/huggingface/transformers/archive/c6c7e189846ccaa3bb410569bfc6556d193c638d.zip
 huggingface_hub>=0.24
 imageio-ffmpeg>=0.5
 sentencepiece

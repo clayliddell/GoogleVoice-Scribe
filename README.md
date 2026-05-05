@@ -16,8 +16,8 @@ weights are not stored in this repository or bundled in releases.
 
 GitHub releases contain two assets:
 
-- `GoogleVoiceScribeSetup-v0.2.0-win-x64.exe` - per-user Windows installer for the local server and control app.
-- `GoogleVoiceScribeExtension-v0.2.0.crx` - packaged Chromium MV3 extension.
+- `GoogleVoiceScribeSetup-v0.2.1-win-x64.exe` - per-user Windows installer for the local server and control app.
+- `GoogleVoiceScribeExtension-v0.2.1.crx` - packaged Chromium MV3 extension.
 
 The installer is intentionally thin. It installs the app under
 `%LOCALAPPDATA%\GoogleVoiceScribe`, creates a local `.venv`, installs the
@@ -32,14 +32,17 @@ downloaded into the user's Hugging Face cache on demand.
 - Python 3.12 available through the Windows `py` launcher or `python` on PATH.
 - Chromium or Chrome 116+.
 - Network access for first-time dependency/model downloads.
+- GitHub access for the current Transformers source pin. Granite Speech Plus
+  was added after the latest compatible PyPI release available when this
+  version was built.
 
 ## Install From A GitHub Release
 
-1. Download and run `GoogleVoiceScribeSetup-v0.2.0-win-x64.exe`.
+1. Download and run `GoogleVoiceScribeSetup-v0.2.1-win-x64.exe`.
 2. Wait for the installer to finish dependency setup and launch the control app.
 3. Click "Start Server" in the control app.
 4. Confirm the local service is healthy at `http://127.0.0.1:8765/health`.
-5. Download `GoogleVoiceScribeExtension-v0.2.0.crx`.
+5. Download `GoogleVoiceScribeExtension-v0.2.1.crx`.
 6. Open `chrome://extensions`, enable Developer mode, and drag the `.crx` file
    onto the extensions page. If your browser blocks local CRX sideloading, load
    `extension/` as an unpacked extension from a source checkout instead.
@@ -158,7 +161,7 @@ runs for each mode.
 The generated `.crx` and installer `.exe` are written to `dist/`. The CRX key is
 stored locally under `build\secrets` and is ignored by Git.
 
-To create or update the GitHub release for `v0.2.0`:
+To create or update the GitHub release for the current app version:
 
 ```cmd
 .\.venv\Scripts\python.exe .\scripts\release.py

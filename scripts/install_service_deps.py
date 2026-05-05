@@ -54,14 +54,18 @@ def main() -> int:
 
     check = (
         "import os, sys; "
+        "import importlib.util; "
         "torch_lib = os.path.join(sys.prefix, 'Lib', 'site-packages', 'torch', 'lib'); "
         "os.add_dll_directory(torch_lib) if os.path.isdir(torch_lib) else None; "
         "import torch, torchaudio, torchvision; "
+        "import transformers; "
         "from llama_cpp import llama_cpp; "
         "print(torch.__version__); print(torchaudio.__version__); print(torchvision.__version__); "
+        "print('transformers=', transformers.__version__); "
         "assert torch.__version__.startswith('2.6.0+cu124'), torch.__version__; "
         "assert torchaudio.__version__.startswith('2.6.0+cu124'), torchaudio.__version__; "
         "assert torchvision.__version__.startswith('0.21.0+cu124'), torchvision.__version__; "
+        "assert importlib.util.find_spec('transformers.models.granite_speech_plus') is not None, transformers.__version__; "
         "print('cuda_available=', torch.cuda.is_available()); "
         "print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda device'); "
         "print('llama_cpp_gpu_offload=', bool(llama_cpp.llama_supports_gpu_offload()))"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "googlevoice-scribe"
-version = "0.2.0"
+version = "0.2.1"
 description = "Chromium extension and local server for recording and transcribing Google Voice calls."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -23,8 +23,8 @@ dependencies = [
   "fastapi>=0.111",
   "uvicorn[standard]>=0.30",
   "numpy>=1.26",
-  "accelerate>=0.34",
-  "transformers>=5.7",
+  "accelerate>=1.1",
+  "transformers @ https://github.com/huggingface/transformers/archive/c6c7e189846ccaa3bb410569bfc6556d193c638d.zip",
   "huggingface_hub>=0.24",
   "imageio-ffmpeg>=0.5",
   "sentencepiece",

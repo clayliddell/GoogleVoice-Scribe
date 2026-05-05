@@ -26,7 +26,7 @@ def repo_python() -> Path:
 def run(command: Iterable[str | Path], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None) -> None:
     command = [str(item) for item in command]
     print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=cwd, env=env, check=True)
+    subprocess.run(command, cwd=cwd, env=env, check=True, creationflags=subprocess_creationflags())
 
 
 def run_capture(command: Iterable[str | Path], *, cwd: Path = REPO_ROOT) -> str:
@@ -37,6 +37,7 @@ def run_capture(command: Iterable[str | Path], *, cwd: Path = REPO_ROOT) -> str:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        creationflags=subprocess_creationflags(),
     )
     return completed.stdout
 
@@ -67,3 +68,9 @@ def copytree_clean(source: Path, target: Path) -> None:
 
 def windows_creationflags() -> int:
     return 0x08000000 if os.name == "nt" else 0
+
+
+def subprocess_creationflags() -> int:
+    if os.getenv("GV_HIDE_SUBPROCESS_WINDOWS", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return windows_creationflags()
+    return 0

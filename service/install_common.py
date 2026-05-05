@@ -18,9 +18,10 @@ APP_DIR_NAME = "GoogleVoiceScribe"
 APP_ICON_PNG_NAME = "GoogleVoiceScribe.png"
 APP_ICON_ICO_NAME = "GoogleVoiceScribe.ico"
 APP_USER_MODEL_ID = "GoogleVoiceScribe.GoogleVoiceScribe"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = "8765"
+GRANITE_SPEECH_PLUS_MODULE = "transformers.models.granite_speech_plus"
 
 CONFIG_OPTIONS: tuple[tuple[str, str, str], ...] = (
     ("GV_TRANSCRIBE", "Transcribe calls", "1"),
@@ -402,13 +403,15 @@ def dependencies_ready(install_dir: Path) -> bool:
         return False
     check = (
         "import os, sys; "
+        "import importlib.util; "
         "torch_lib = os.path.join(sys.prefix, 'Lib', 'site-packages', 'torch', 'lib'); "
         "os.add_dll_directory(torch_lib) if os.path.isdir(torch_lib) else None; "
         "import fastapi, uvicorn, numpy, torch, torchaudio, torchvision, transformers, huggingface_hub; "
         "import llama_cpp; "
         "assert torch.__version__.startswith('2.6.0+cu124'), torch.__version__; "
         "assert torchaudio.__version__.startswith('2.6.0+cu124'), torchaudio.__version__; "
-        "assert torchvision.__version__.startswith('0.21.0+cu124'), torchvision.__version__"
+        "assert torchvision.__version__.startswith('0.21.0+cu124'), torchvision.__version__; "
+        f"assert importlib.util.find_spec({GRANITE_SPEECH_PLUS_MODULE!r}) is not None, transformers.__version__"
     )
     completed = subprocess.run(
         [str(python), "-c", check],
@@ -474,9 +477,12 @@ def start_server(install_dir: Path) -> int:
 
 
 def run_streamed(command: list[str], *, cwd: Path, report: Callable[[str], None]) -> None:
+    env = os.environ.copy()
+    env["GV_HIDE_SUBPROCESS_WINDOWS"] = "1"
     process = subprocess.Popen(
         command,
         cwd=cwd,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

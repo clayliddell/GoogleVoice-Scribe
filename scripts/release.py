@@ -6,16 +6,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-from script_common import DIST_ROOT, REPO_ROOT, run, run_capture
+from script_common import DIST_ROOT, REPO_ROOT, read_app_version, run, run_capture
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build and publish a GoogleVoice Scribe GitHub release.")
     parser.add_argument("--repo-name", default="GoogleVoice-Scribe")
-    parser.add_argument("--tag", default="v0.2.0")
+    parser.add_argument("--tag", default=None)
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
+
+    if args.tag is None:
+        args.tag = f"v{read_app_version()}"
 
     if not args.allow_dirty and run_capture(["git", "status", "--porcelain"]).strip():
         raise SystemExit("Working tree is dirty. Commit or stash changes before releasing, or pass --allow-dirty.")
